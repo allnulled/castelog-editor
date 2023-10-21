@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="codemirror.js"></script>
+    <script src="castelog.js"></script>
+    <link rel="stylesheet" href="codemirror.css">
+    <title>Castelog editor en línea</title>
+    <style>
+        html, body {
+            padding: 0;
+            margin: 0;
+        }
+        .CodeMirror {
+            border: 1px solid #AAA;
+        }
+        .CodeMirror-gutters {
+            border: 1px solid #AAA;
+            background-color: #333;
+        }
+        .editor_entrada_contenedor {
+            position: relative;
+        }
+        .editor_entrada_panel_de_botones {
+            position: absolute;
+            top: 5px;
+            left: auto;
+            right: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="editor_entrada_contenedor">
+        <textarea id="editor_entrada"></textarea>
+        <div class="editor_entrada_panel_de_botones">
+            <button id="boton_de_validar" onclick="transpilar_codigo_de_entrada()">Validar</button>
+            <button id="boton_de_exportar" onclick="exportar_codigo_de_entrada()">Exportar</button>
+        </div>
+    </div>
+    <div id="panel_de_errores"></div>
+    <textarea id="editor_salida"></textarea>
+    <script>
+        const panel_de_errores = document.getElementById("panel_de_errores");
+        const editor_de_entrada = CodeMirror.fromTextArea(document.getElementById("editor_entrada"), {
+            lineNumbers: true
+        });
+        const editor_de_salida = CodeMirror.fromTextArea(document.getElementById("editor_salida"), {
+            lineNumbers: true
+        });
+        const exportar_codigo_de_entrada = function() {
+            const entrada = editor_de_entrada.getValue();
+            editor_de_salida.setValue("https://allnulled.github.io/castelog-editor?code=" + encodeURIComponent(entrada));
+        };
+        const transpilar_codigo_de_entrada = function() {
+            try {
+                const entrada = editor_de_entrada.getValue();
+                const salida = Castelog_parser.parse(entrada).trim();
+                editor_de_salida.setValue(salida);
+                panel_de_errores.innerHTML = "";
+            } catch(error) {
+                editor_de_salida.setValue("Error");
+                panel_de_errores.innerHTML = "";
+                const div_error_location = document.createElement("pre");
+                div_error_location.textContent = `Error en línea ${error.location.start.line}:${error.location.start.column} - ${error.location.end.line}:${error.location.end.column}`;
+                const div_error_expeted = document.createElement("pre");
+                div_error_expeted.textContent = "Se esperaba algo como:";
+                const no_repeat_expectations = [];
+                for(let index = 0; index < error.expected.length; index++) {
+                    const expectation = error.expected[index];
+                    if(expectation.type === "literal") {
+                        if(no_repeat_expectations.indexOf(expectation.text.toLowerCase()) === -1) {
+                            div_error_expeted.textContent += "\n  " + expectation.text;
+                            no_repeat_expectations.push(expectation.text.toLowerCase());
+                        }
+                    } else if(expectation.type === "other") {
+                        if(no_repeat_expectations.indexOf(expectation.description.toLowerCase()) === -1) {
+                            div_error_expeted.textContent += "\n  " + expectation.description;
+                            no_repeat_expectations.push(expectation.description.toLowerCase());
+                        }
+                    }
+                }
+                panel_de_errores.appendChild(div_error_location);
+                panel_de_errores.appendChild(div_error_expeted);
+                console.log(error);
+            }
+        }
+        window.addEventListener("load", function() {
+            const url_params = new URLSearchParams(window.location.search);
+            const code_param = url_params.get("code");
+            editor_de_entrada.setValue(code_param);
+            document.getElementById("boton_de_validar").click();
+        });
+    </script>
+</body>
+</html>
